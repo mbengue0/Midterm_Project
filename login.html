@@ -211,38 +211,43 @@
         });
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
 
-            try {
-                const response = await fetch('http://localhost:3000/api/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const result = await response.json();
-                
-                // Show message inside the form instead of alert
-                const isSuccess = response.ok; // Check if response was successful
-                showMessage('loginMessage', result.message, isSuccess);
-                
-                if (result.token) {
-                    console.log('Token:', result.token);
-                    // Store token in localStorage or sessionStorage for later use
-                    localStorage.setItem('authToken', result.token);
-                    
-                    // Optional: redirect to dashboard or home page after successful login
-                    // window.location.href = 'dashboard.html';
-                }
-            } catch (error) {
-                showMessage('loginMessage', 'An error occurred. Please try again.', false);
-                console.error('Error:', error);
-            }
+    try {
+        const response = await fetch('http://localhost:3000/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password })
         });
+
+        const result = await response.json();
+        
+        // Show message inside the form instead of alert
+        const isSuccess = response.ok; // Check if response was successful
+        showMessage('loginMessage', result.message, isSuccess);
+        
+        if (result.token) {
+            console.log('Token:', result.token);
+            // Store token in localStorage or sessionStorage for later use
+            localStorage.setItem('authToken', result.token);
+            
+            // Store user info
+            if (result.user) {
+                localStorage.setItem('user', JSON.stringify(result.user));
+            }
+            
+            // Redirect to dashboard
+            window.location.href = 'dashboard.html';
+        }
+    } catch (error) {
+        showMessage('loginMessage', 'An error occurred. Please try again.', false);
+        console.error('Error:', error);
+    }
+});
     </script>
 </body>
 </html>
