@@ -1,0 +1,26 @@
+{
+  "name": "individual_class_project",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daust-tech/individual-class-project-details-mbengue0.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/daust-tech/individual-class-project-details-mbengue0/issues"
+  },
+  "homepage": "https://github.com/daust-tech/individual-class-project-details-mbengue0#readme",
+  "description": "",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "express": "^4.21.2"
+  }
+}

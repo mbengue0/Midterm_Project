@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth API</title>
+    <script src="server.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #2c3e50, #6a3093);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #loginFormContainer, #registerFormContainer {
+            width: 400px;
+            background-color: #f7f8fa;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        #loginFormContainer h2, #registerFormContainer h2 {
+            margin-top: 0;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        #loginFormContainer input, #registerFormContainer input {
+            width: 100%;
+            padding: 12px;
+            margin-top: 5px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        #loginFormContainer button, #registerFormContainer button {
+            width: 100%;
+            padding: 12px;
+            background-color: #3956de;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+        }
+
+        #loginFormContainer button:hover, #registerFormContainer button:hover {
+            background-color: #2a44c2;
+        }
+
+        #loginFormContainer p, #registerFormContainer p {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #loginFormContainer a, #registerFormContainer a {
+            color: #3956de;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        #loginFormContainer a:hover, #registerFormContainer a:hover {
+            text-decoration: underline;
+        }
+
+        label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .message {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .success-message {
+            background-color: rgba(76, 175, 80, 0.2);
+            color: #2e7d32;
+            border: 1px solid #2e7d32;
+        }
+
+        .error-message {
+            background-color: rgba(244, 67, 54, 0.2);
+            color: #d32f2f;
+            border: 1px solid #d32f2f;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loginFormContainer">
+        <h2>Hello!</h2>
+        <div id="loginMessage" class="hidden message"></div>
+        <form id="loginForm">
+            <label for="loginEmail">Username</label>
+            <input type="email" id="loginEmail" name="loginEmail" required placeholder="Username">
+            
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" name="loginPassword" required placeholder="Password">
+            
+            <button type="submit">SIGN IN</button>
+        </form>
+        <p>DON'T HAVE AN ACCOUNT? <a href="#" id="showRegisterForm">SIGN UP NOW!</a></p>
+    </div>
+
+    <div id="registerFormContainer" class="hidden">
+        <h2>Create Account</h2>
+        <div id="registerMessage" class="hidden message"></div>
+        <form id="registerForm">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" required placeholder="Name">
+            
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required placeholder="Email">
+            
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required placeholder="Password">
+            
+            <button type="submit">REGISTER</button>
+        </form>
+        <p>ALREADY HAVE AN ACCOUNT? <a href="#" id="showLoginForm">SIGN IN</a></p>
+    </div>
+
+    <script>
+        document.getElementById('showRegisterForm').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('loginFormContainer').classList.add('hidden');
+            document.getElementById('registerFormContainer').classList.remove('hidden');
+            // Clear any messages when switching forms
+            hideMessage('loginMessage');
+            hideMessage('registerMessage');
+        });
+
+        document.getElementById('showLoginForm').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('registerFormContainer').classList.add('hidden');
+            document.getElementById('loginFormContainer').classList.remove('hidden');
+            // Clear any messages when switching forms
+            hideMessage('loginMessage');
+            hideMessage('registerMessage');
+        });
+
+        // Function to show message in form
+        function showMessage(elementId, message, isSuccess) {
+            const messageElement = document.getElementById(elementId);
+            messageElement.textContent = message;
+            messageElement.classList.remove('hidden', 'success-message', 'error-message');
+            messageElement.classList.add(isSuccess ? 'success-message' : 'error-message');
+        }
+
+        // Function to hide message
+        function hideMessage(elementId) {
+            const messageElement = document.getElementById(elementId);
+            messageElement.classList.add('hidden');
+            messageElement.textContent = '';
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('http://localhost:3000/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                const result = await response.json();
+                
+                // Show message inside the form instead of alert
+                const isSuccess = response.ok; // Check if response was successful
+                showMessage('registerMessage', result.message, isSuccess);
+                
+                // If registration successful, clear the form
+                if (isSuccess) {
+                    document.getElementById('registerForm').reset();
+                    // Optional: redirect to login after successful registration with a delay
+                    // setTimeout(() => {
+                    //     document.getElementById('showLoginForm').click();
+                    // }, 2000);
+                }
+            } catch (error) {
+                showMessage('registerMessage', 'An error occurred. Please try again.', false);
+                console.error('Error:', error);
+            }
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch('http://localhost:3000/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const result = await response.json();
+                
+                // Show message inside the form instead of alert
+                const isSuccess = response.ok; // Check if response was successful
+                showMessage('loginMessage', result.message, isSuccess);
+                
+                if (result.token) {
+                    console.log('Token:', result.token);
+                    // Store token in localStorage or sessionStorage for later use
+                    localStorage.setItem('authToken', result.token);
+                    
+                    // Optional: redirect to dashboard or home page after successful login
+                    // window.location.href = 'dashboard.html';
+                }
+            } catch (error) {
+                showMessage('loginMessage', 'An error occurred. Please try again.', false);
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
