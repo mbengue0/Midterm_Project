@@ -176,17 +176,40 @@
             font-weight: bold;
         }
 
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            background-color: white;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-
-        .empty-state h3 {
-            margin-top: 0;
-        }
+        .modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+.modal-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+.cancel-btn {
+  background-color: #ccc;
+  color: #333;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.cancel-btn:hover {
+  background-color: #bbb;
+}
     </style>
 </head>
 <body>
@@ -243,6 +266,16 @@
     </div>
     <div class="container">
         <div id="messageContainer" style="margin-bottom: 20px;"></div>
+        <!-- Add confirmation modal -->
+        <div id="confirmModal" class="modal" style="display: none;">
+          <div class="modal-content">
+            <p>Are you sure you want to delete this task?</p>
+            <div class="modal-buttons">
+              <button id="confirmDeleteBtn" class="add-task-btn">Yes, Delete</button>
+              <button id="cancelDeleteBtn" class="cancel-btn">Cancel</button>
+            </div>
+          </div>
+        </div>
         <button class="add-task-btn" id="showAddTaskFormBtn">+ Add New Task</button>
         <!-- Rest of your HTML -->
       </div>
@@ -274,17 +307,22 @@
             document.getElementById('logoutBtn').addEventListener('click', handleLogout);
         });
 
-        // Load tasks from API
- async function loadTasks() {
+// Load tasks from API
+async function loadTasks() {
+  console.log('Loading tasks...');
   const token = localStorage.getItem('authToken');
   const tasksContainer = document.getElementById('tasksContainer');
-  const emptyState = document.getElementById('emptyState');
 
-  // Ensure emptyState exists before proceeding
+  let emptyState = document.getElementById('emptyState');
   if (!emptyState) {
-    console.error('Empty state element not found');
-    tasksContainer.innerHTML = '<p>Error: UI element missing</p>';
-    return;
+    emptyState = document.createElement('div');
+    emptyState.id = 'emptyState';
+    emptyState.className = 'empty-state';
+    emptyState.innerHTML = `
+      <h3>No tasks yet</h3>
+      <p>Create your first task to get started</p>
+    `;
+    tasksContainer.appendChild(emptyState);
   }
 
   try {
@@ -299,11 +337,15 @@
     }
 
     const data = await response.json();
+    console.log('Tasks data:', data);
     
+    while (tasksContainer.firstChild && tasksContainer.firstChild !== emptyState) {
+      tasksContainer.removeChild(tasksContainer.firstChild);
+    }
+
     if (data.tasks.length === 0) {
       emptyState.style.display = 'block';
-      tasksContainer.innerHTML = '';
-      tasksContainer.appendChild(emptyState);
+      console.log('No tasks found');
       return;
     }
 
@@ -317,24 +359,25 @@
       taskGrid.appendChild(taskCard);
     });
 
-    tasksContainer.innerHTML = '';
     tasksContainer.appendChild(taskGrid);
+    console.log('Tasks loaded successfully');
   } catch (error) {
     console.error('Error loading tasks:', error);
-    // Instead of overwriting innerHTML, append the error message
+    while (tasksContainer.firstChild && tasksContainer.firstChild !== emptyState) {
+      tasksContainer.removeChild(tasksContainer.firstChild);
+    }
     const errorMessage = document.createElement('p');
     errorMessage.textContent = `Error loading tasks: ${error.message}`;
     errorMessage.style.color = 'red';
-    tasksContainer.innerHTML = ''; // Clear previous content
     tasksContainer.appendChild(errorMessage);
-    tasksContainer.appendChild(emptyState); // Ensure emptyState remains in the DOM
   }
 }
 
 function createTaskCard(task) {
   const taskCard = document.createElement('div');
   taskCard.className = 'task-card';
-  taskCard.setAttribute('data-id', task.id); // Keep this for reference
+  taskCard.setAttribute('data-id', task.id);
+  taskCard.id = `task-${task.id}`; // Add unique ID
 
   const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date';
   const statusClass = `status-${task.status.replace('_', '-')}`;
@@ -463,46 +506,73 @@ function formatStatus(status) {
             }
         }
 
-        async function deleteTask(taskId) {
-  // No event.preventDefault() needed for a button click
-  const confirmDelete = confirm("Are you sure you want to delete this task?");
-  if (!confirmDelete) {
-    return;
-  }
+function deleteTask(taskId) {
+  const modal = document.getElementById('confirmModal');
+  const confirmBtn = document.getElementById('confirmDeleteBtn');
+  const cancelBtn = document.getElementById('cancelDeleteBtn');
+  const messageContainer = document.getElementById('messageContainer');
 
-  try {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      throw new Error('No authentication token found. Please log in again.');
-    }
+  modal.style.display = 'flex';
 
-    const response = await fetch(`http://localhost:3000/api/tasks/${taskId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+  const showMessage = (message, isSuccess) => {
+    messageContainer.textContent = message;
+    messageContainer.className = 'message';
+    messageContainer.classList.add(isSuccess ? 'success-message' : 'error-message');
+    setTimeout(() => {
+      messageContainer.textContent = '';
+      messageContainer.className = 'message';
+    }, 5000);
+  };
+
+  const handleConfirm = async () => {
+    modal.style.display = 'none';
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
       }
-    });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Server returned ${response.status}`);
+      const response = await fetch(`http://localhost:3000/api/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 404) {
+          // Task not found, but treat it as a success since the task is already gone
+          showMessage('Task not found, it may have already been deleted.', true);
+          await loadTasks(); // Refresh the list to remove stale data
+          return;
+        }
+        throw new Error(errorData.message || `Server returned ${response.status}`);
+      }
+
+      showMessage('Task deleted successfully', true);
+      await loadTasks();
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      showMessage(`Failed to delete task: ${error.message}`, false);
     }
+  };
 
-    // Refresh the task list instead of manual DOM removal
-    await loadTasks();
-  } catch (error) {
-    console.error('Error deleting task:', error);
-    alert(`Failed to delete task: ${error.message}`);
-  }
+  const handleCancel = () => {
+    modal.style.display = 'none';
+  };
+
+  confirmBtn.onclick = handleConfirm;
+  cancelBtn.onclick = handleCancel;
 }
 
-        // Handle logout
-        function handleLogout() {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
-            window.location.href = 'login.html';
-        };
+// Handle logout
+function handleLogout() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    window.location.href = 'login.html';
+};
     </script>
 </body>
 </html>
