@@ -1,3 +1,4 @@
+// backend/index.js
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
@@ -7,7 +8,7 @@ const jwt = require("jsonwebtoken");
 
 const app = express();
 const port = 3000;
-const JWT_SECRET = "your_jwt_secret"; // In production, use environment variables
+const JWT_SECRET = "mySuperSecretKey123"; // In production, use environment variables
 
 // MySQL Connection Pool
 const pool = mysql.createPool({

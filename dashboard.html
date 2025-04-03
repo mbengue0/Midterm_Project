@@ -241,6 +241,11 @@
             </div>
         </div>
     </div>
+    <div class="container">
+        <div id="messageContainer" style="margin-bottom: 20px;"></div>
+        <button class="add-task-btn" id="showAddTaskFormBtn">+ Add New Task</button>
+        <!-- Rest of your HTML -->
+      </div>
 
     <script>
         // Check if user is logged in
@@ -270,78 +275,86 @@
         });
 
         // Load tasks from API
-        async function loadTasks() {
-            const token = localStorage.getItem('authToken');
-            const tasksContainer = document.getElementById('tasksContainer');
-            const emptyState = document.getElementById('emptyState');
+ async function loadTasks() {
+  const token = localStorage.getItem('authToken');
+  const tasksContainer = document.getElementById('tasksContainer');
+  const emptyState = document.getElementById('emptyState');
 
-            try {
-                const response = await fetch('http://localhost:3000/api/tasks', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
+  // Ensure emptyState exists before proceeding
+  if (!emptyState) {
+    console.error('Empty state element not found');
+    tasksContainer.innerHTML = '<p>Error: UI element missing</p>';
+    return;
+  }
 
-                if (!response.ok) {
-                    throw new Error('Failed to load tasks');
-                }
+  try {
+    const response = await fetch('http://localhost:3000/api/tasks', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
 
-                const data = await response.json();
-                
-                if (data.tasks.length === 0) {
-                    emptyState.style.display = 'block';
-                    tasksContainer.innerHTML = '';
-                    tasksContainer.appendChild(emptyState);
-                    return;
-                }
+    if (!response.ok) {
+      throw new Error('Failed to load tasks');
+    }
 
-                emptyState.style.display = 'none';
-                
-                // Create task grid
-                const taskGrid = document.createElement('div');
-                taskGrid.className = 'task-grid';
-                
-                data.tasks.forEach(task => {
-                    const taskCard = createTaskCard(task);
-                    taskGrid.appendChild(taskCard);
-                });
+    const data = await response.json();
+    
+    if (data.tasks.length === 0) {
+      emptyState.style.display = 'block';
+      tasksContainer.innerHTML = '';
+      tasksContainer.appendChild(emptyState);
+      return;
+    }
 
-                tasksContainer.innerHTML = '';
-                tasksContainer.appendChild(taskGrid);
-            } catch (error) {
-                console.error('Error loading tasks:', error);
-                tasksContainer.innerHTML = `<p>Error loading tasks: ${error.message}</p>`;
-            }
-        }
+    emptyState.style.display = 'none';
+    
+    const taskGrid = document.createElement('div');
+    taskGrid.className = 'task-grid';
+    
+    data.tasks.forEach(task => {
+      const taskCard = createTaskCard(task);
+      taskGrid.appendChild(taskCard);
+    });
 
-        // Create a task card element
-        function createTaskCard(task) {
-            const taskCard = document.createElement('div');
-            taskCard.className = 'task-card';
-            taskCard.setAttribute('data-id', task.id);
+    tasksContainer.innerHTML = '';
+    tasksContainer.appendChild(taskGrid);
+  } catch (error) {
+    console.error('Error loading tasks:', error);
+    // Instead of overwriting innerHTML, append the error message
+    const errorMessage = document.createElement('p');
+    errorMessage.textContent = `Error loading tasks: ${error.message}`;
+    errorMessage.style.color = 'red';
+    tasksContainer.innerHTML = ''; // Clear previous content
+    tasksContainer.appendChild(errorMessage);
+    tasksContainer.appendChild(emptyState); // Ensure emptyState remains in the DOM
+  }
+}
 
-            // Format date
-            const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date';
-            
-            // Set status class
-            const statusClass = `status-${task.status.replace('_', '-')}`;
-            
-            taskCard.innerHTML = `
-                <div class="task-status ${statusClass}">${formatStatus(task.status)}</div>
-                <h3>${task.title}</h3>
-                <p>${task.description || 'No description'}</p>
-                <div class="task-date">Due: ${dueDate}</div>
-                <div class="task-actions">
-                    <button class="edit-task" onclick="editTask(${task.id})">Edit</button>
-                    <button class="delete-task" onclick="deleteTask(${task.id})">Delete</button>
-                </div>
-            `;
-            
-            return taskCard;
-        }
+function createTaskCard(task) {
+  const taskCard = document.createElement('div');
+  taskCard.className = 'task-card';
+  taskCard.setAttribute('data-id', task.id); // Keep this for reference
+
+  const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date';
+  const statusClass = `status-${task.status.replace('_', '-')}`;
+  
+  taskCard.innerHTML = `
+    <div class="task-status ${statusClass}">${formatStatus(task.status)}</div>
+    <h3>${task.title}</h3>
+    <p>${task.description || 'No description'}</p>
+    <div class="task-date">Due: ${dueDate}</div>
+    <div class="task-actions">
+      <button class="edit-task" onclick="editTask(${task.id})">Edit</button>
+      <button class="delete-task" onclick="deleteTask(${task.id})">Delete</button>
+    </div>
+  `;
+  
+  return taskCard;
+}
 
         // Format status for display
-        function formatStatus(status) {
+function formatStatus(status) {
             return status.replace('_', ' ').replace(
                 /\w\S*/g,
                 function(txt) {
@@ -450,33 +463,39 @@
             }
         }
 
-        // Delete task
         async function deleteTask(taskId) {
-            if (!confirm('Are you sure you want to delete this task?')) {
-                return;
-            }
-            
-            const token = localStorage.getItem('authToken');
-            
-            try {
-                const response = await fetch(`http://localhost:3000/api/tasks/${taskId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Failed to delete task');
-                }
-                
-                // Refresh task list
-                loadTasks();
-            } catch (error) {
-                console.error('Error deleting task:', error);
-                alert(`Error: ${error.message}`);
-            }
-        }
+  // No event.preventDefault() needed for a button click
+  const confirmDelete = confirm("Are you sure you want to delete this task?");
+  if (!confirmDelete) {
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('No authentication token found. Please log in again.');
+    }
+
+    const response = await fetch(`http://localhost:3000/api/tasks/${taskId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Server returned ${response.status}`);
+    }
+
+    // Refresh the task list instead of manual DOM removal
+    await loadTasks();
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    alert(`Failed to delete task: ${error.message}`);
+  }
+}
 
         // Handle logout
         function handleLogout() {
