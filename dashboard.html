@@ -161,6 +161,46 @@
             color: #b0b0b0;
         }
 
+        .task-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: capitalize;
+            margin-bottom: 10px;
+        }
+
+        .task-status.pending {
+            background-color: #ffe082;
+            color: #e65100;
+        }
+
+        .task-status.in_progress {
+            background-color: #90caf9;
+            color: #1565c0;
+        }
+
+        .task-status.completed {
+            background-color: #a5d6a7;
+            color: #2e7d32;
+        }
+
+        .dark-mode .task-status.pending {
+            background-color: #ffb300;
+            color: #3e2723;
+        }
+
+        .dark-mode .task-status.in_progress {
+            background-color: #42a5f5;
+            color: #0d47a1;
+        }
+
+        .dark-mode .task-status.completed {
+            background-color: #66bb6a;
+            color: #1b5e20;
+        }
+
         .task-actions {
             display: flex;
             justify-content: space-between;
@@ -648,6 +688,7 @@
             
             taskCard.innerHTML = `
                 <h3>${task.title}</h3>
+                <span class="task-status ${task.status}">${task.status.replace('_', ' ')}</span>
                 <p>${task.description || 'No description'}</p>
                 <div class="task-actions">
                     <button class="status-btn ${isCompleted ? 'completed' : ''}" onclick="toggleStatus(${task.id}, '${task.status}')">
