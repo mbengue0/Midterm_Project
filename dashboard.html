@@ -762,37 +762,37 @@
 
         // Load tasks from API
         async function loadTasks() {
-            const token = localStorage.getItem('authToken');
-            const tasksContainer = document.getElementById('tasksContainer');
+    const token = localStorage.getItem('authToken');
+    const tasksContainer = document.getElementById('tasksContainer');
 
-            try {
-                const response = await fetch('http://localhost:3000/api/tasks', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (!response.ok) {
-                    if (response.status === 401 || response.status === 403) {
-                        showMessage('Session expired. Please log in again.', false);
-                        localStorage.removeItem('authToken');
-                        localStorage.removeItem('user');
-                        window.location.href = 'index.html';
-                        return;
-                    }
-                    throw new Error('Failed to load tasks');
-                }
-
-                const data = await response.json();
-                allTasks = data.tasks;
-                renderTasks(allTasks);
-                updateStats();
-            } catch (error) {
-                console.error('Error loading tasks:', error);
-                tasksContainer.innerHTML = '';
-                showMessage(`Error loading tasks: ${error.message}`, false);
+    try {
+        const response = await fetch('http://localhost:3000/api/tasks', {
+            headers: {
+                'Authorization': `Bearer ${token}`
             }
+        });
+
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                showMessage('Session expired. Please log in again.', false);
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('user');
+                window.location.href = 'index.html';
+                return;
+            }
+            throw new Error('Failed to load tasks');
         }
+
+        const data = await response.json();
+        allTasks = data.tasks;
+        renderTasks(allTasks);
+        updateStats();
+    } catch (error) {
+        console.error('Error loading tasks:', error);
+        tasksContainer.innerHTML = '<p>Unable to load tasks. Please try again later.</p>';
+        showMessage(`Error loading tasks: ${error.message}`, false);
+    }
+}
 
         // Update dashboard stats
         function updateStats() {
@@ -837,54 +837,60 @@
         }
 
         // Create a task card element
-        function createTaskCard(task) {
-            const taskCard = document.createElement('div');
-            taskCard.className = 'task-card';
-            taskCard.id = `task-${task.id}`;
+        // Create a task card element
+function createTaskCard(task) {
+    const taskCard = document.createElement('div');
+    taskCard.className = 'task-card';
+    taskCard.id = `task-${task.id}`;
 
-            // Calculate progress percentage
-            const progress = task.status === 'pending' ? 0 : task.status === 'in_progress' ? 50 : 100;
-            const strokeDashoffset = 94.2 * (1 - progress / 100);
+    // Calculate progress percentage
+    const progress = task.status === 'pending' ? 0 : task.status === 'in_progress' ? 50 : 100;
+    const strokeDashoffset = 94.2 * (1 - progress / 100);
 
-            // Check if task is due soon or overdue
+    // Check if task is due soon or overdue
+    let dueClass = '';
+    if (task.due_date && typeof task.due_date === 'string' && task.due_date.trim() !== '') {
+        const dueDate = new Date(task.due_date);
+        if (!isNaN(dueDate.getTime())) { // Check if dueDate is a valid date
             const today = new Date();
-            const dueDate = task.due_date ? new Date(task.due_date) : null;
-            let dueClass = '';
-            if (dueDate) {
-                const timeDiff = dueDate - today;
-                const hoursDiff = timeDiff / (1000 * 60 * 60);
-                if (hoursDiff <= 24 && hoursDiff > 0) {
-                    dueClass = 'due-soon';
-                } else if (hoursDiff <= 0 && task.status !== 'completed') {
-                    dueClass = 'overdue';
-                }
+            const timeDiff = dueDate - today;
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            if (hoursDiff <= 24 && hoursDiff > 0) {
+                dueClass = 'due-soon';
+            } else if (hoursDiff <= 0 && task.status !== 'completed') {
+                dueClass = 'overdue';
             }
-
-            taskCard.classList.add(dueClass);
-
-            const isCompleted = task.status === 'completed';
-            
-            taskCard.innerHTML = `
-                <div class="progress-circle">
-                    <svg>
-                        <circle class="background" cx="20" cy="20" r="15"></circle>
-                        <circle class="progress" cx="20" cy="20" r="15" style="stroke-dashoffset: ${strokeDashoffset};"></circle>
-                    </svg>
-                </div>
-                <h3>${task.title}</h3>
-                <span class="task-status ${task.status}">${task.status.replace('_', ' ')}</span>
-                <p>${task.description || 'No description'}</p>
-                <div class="task-actions">
-                    <button class="status-btn ${isCompleted ? 'completed' : ''}" onclick="toggleStatus(${task.id}, '${task.status}')">
-                        ${isCompleted ? 'Done' : 'Mark as Done'}
-                    </button>
-                    <button class="edit-btn" onclick="editTask(${task.id})">Edit</button>
-                    <button class="delete-btn" onclick="deleteTask(${task.id})">🗑️</button>
-                </div>
-            `;
-            
-            return taskCard;
         }
+    }
+
+    // Only add the class if dueClass is non-empty
+    if (dueClass) {
+        taskCard.classList.add(dueClass);
+    }
+
+    const isCompleted = task.status === 'completed';
+    
+    taskCard.innerHTML = `
+        <div class="progress-circle">
+            <svg>
+                <circle class="background" cx="20" cy="20" r="15"></circle>
+                <circle class="progress" cx="20" cy="20" r="15" style="stroke-dashoffset: ${strokeDashoffset};"></circle>
+            </svg>
+        </div>
+        <h3>${task.title}</h3>
+        <span class="task-status ${task.status}">${task.status.replace('_', ' ')}</span>
+        <p>${task.description || 'No description'}</p>
+        <div class="task-actions">
+            <button class="status-btn ${isCompleted ? 'completed' : ''}" onclick="toggleStatus(${task.id}, '${task.status}')">
+                ${isCompleted ? 'Done' : 'Mark as Done'}
+            </button>
+            <button class="edit-btn" onclick="editTask(${task.id})">Edit</button>
+            <button class="delete-btn" onclick="deleteTask(${task.id})">🗑️</button>
+        </div>
+    `;
+    
+    return taskCard;
+}
 
         // Show add/edit task form
         function showAddTaskForm() {

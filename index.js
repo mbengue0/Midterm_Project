@@ -124,27 +124,41 @@ app.post('/api/tasks', authenticateToken, async (req, res) => {
   const user_id = req.user.id;
   
   if (!title) {
-    return res.status(400).json({ message: "Task title is required." });
+      return res.status(400).json({ message: "Task title is required." });
+  }
+
+  // Validate due_date
+  let validatedDueDate = null;
+  if (due_date) {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(due_date)) {
+          return res.status(400).json({ message: "Invalid due_date format. Use YYYY-MM-DD." });
+      }
+      const parsedDate = new Date(due_date);
+      if (isNaN(parsedDate.getTime())) {
+          return res.status(400).json({ message: "Invalid due_date. Must be a valid date." });
+      }
+      validatedDueDate = due_date;
   }
 
   try {
-    const [result] = await pool.execute(
-      'INSERT INTO tasks (user_id, title, description, due_date, status) VALUES (?, ?, ?, ?, ?)',
-      [user_id, title, description || null, due_date || null, status || 'pending']
-    );
-    
-    const [newTask] = await pool.execute(
-      'SELECT * FROM tasks WHERE id = ?',
-      [result.insertId]
-    );
+      const [result] = await pool.execute(
+          'INSERT INTO tasks (user_id, title, description, due_date, status) VALUES (?, ?, ?, ?, ?)',
+          [user_id, title, description || null, validatedDueDate, status || 'pending']
+      );
+      
+      const [newTask] = await pool.execute(
+          'SELECT * FROM tasks WHERE id = ?',
+          [result.insertId]
+      );
 
-    res.status(201).json({ 
-      message: "Task created successfully",
-      task: newTask[0]
-    });
+      res.status(201).json({ 
+          message: "Task created successfully",
+          task: newTask[0]
+      });
   } catch (error) {
-    console.error("Task creation error:", error);
-    res.status(500).json({ message: `Server error when creating task: ${error.message}` });
+      console.error("Task creation error:", error);
+      res.status(500).json({ message: `Server error when creating task: ${error.message}` });
   }
 });
 
@@ -194,49 +208,63 @@ app.put('/api/tasks/:id', authenticateToken, async (req, res) => {
   const { title, description, due_date, status } = req.body;
 
   try {
-    // Check if task exists and belongs to the user
-    const [tasks] = await pool.execute(
-      'SELECT * FROM tasks WHERE id = ? AND user_id = ?',
-      [taskId, userId]
-    );
-    
-    if (tasks.length === 0) {
-      return res.status(404).json({ message: "Task not found." });
-    }
+      // Check if task exists and belongs to the user
+      const [tasks] = await pool.execute(
+          'SELECT * FROM tasks WHERE id = ? AND user_id = ?',
+          [taskId, userId]
+      );
+      
+      if (tasks.length === 0) {
+          return res.status(404).json({ message: "Task not found." });
+      }
 
-    // Validate status if provided
-    if (status && !['pending', 'in_progress', 'completed'].includes(status)) {
-      return res.status(400).json({ message: "Invalid status value. Must be 'pending', 'in_progress', or 'completed'." });
-    }
+      // Validate status if provided
+      if (status && !['pending', 'in_progress', 'completed'].includes(status)) {
+          return res.status(400).json({ message: "Invalid status value. Must be 'pending', 'in_progress', or 'completed'." });
+      }
 
-    // Update only the fields that are provided
-    const updates = {};
-    if (title !== undefined) updates.title = title;
-    if (description !== undefined) updates.description = description;
-    if (due_date !== undefined) updates.due_date = due_date;
-    if (status !== undefined) updates.status = status;
+      // Validate due_date if provided
+      let validatedDueDate = due_date;
+      if (due_date !== undefined && due_date !== null) {
+          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+          if (!dateRegex.test(due_date)) {
+              return res.status(400).json({ message: "Invalid due_date format. Use YYYY-MM-DD." });
+          }
+          const parsedDate = new Date(due_date);
+          if (isNaN(parsedDate.getTime())) {
+              return res.status(400).json({ message: "Invalid due_date. Must be a valid date." });
+          }
+          validatedDueDate = due_date;
+      }
 
-    const [result] = await pool.execute(
-      'UPDATE tasks SET title = ?, description = ?, due_date = ?, status = ? WHERE id = ?',
-      [
-        updates.title ?? tasks[0].title,
-        updates.description ?? tasks[0].description,
-        updates.due_date ?? tasks[0].due_date,
-        updates.status ?? tasks[0].status,
-        taskId
-      ]
-    );
+      // Update only the fields that are provided
+      const updates = {};
+      if (title !== undefined) updates.title = title;
+      if (description !== undefined) updates.description = description;
+      if (due_date !== undefined) updates.due_date = validatedDueDate;
+      if (status !== undefined) updates.status = status;
 
-    // Fetch the updated task
-    const [updatedTask] = await pool.execute(
-      'SELECT * FROM tasks WHERE id = ?',
-      [taskId]
-    );
+      const [result] = await pool.execute(
+          'UPDATE tasks SET title = ?, description = ?, due_date = ?, status = ? WHERE id = ?',
+          [
+              updates.title ?? tasks[0].title,
+              updates.description ?? tasks[0].description,
+              updates.due_date ?? tasks[0].due_date,
+              updates.status ?? tasks[0].status,
+              taskId
+          ]
+      );
 
-    res.json({ message: "Task updated successfully", task: updatedTask[0] });
+      // Fetch the updated task
+      const [updatedTask] = await pool.execute(
+          'SELECT * FROM tasks WHERE id = ?',
+          [taskId]
+      );
+
+      res.json({ message: "Task updated successfully", task: updatedTask[0] });
   } catch (error) {
-    console.error("Task update error:", error);
-    res.status(500).json({ message: `Server error when updating task: ${error.message}` });
+      console.error("Task update error:", error);
+      res.status(500).json({ message: `Server error when updating task: ${error.message}` });
   }
 });
 
