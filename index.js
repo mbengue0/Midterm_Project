@@ -1,7 +1,6 @@
 // backend/index.js
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const crypto = require("crypto");
 const cors = require("cors");
 const mysql = require("mysql2/promise");
 const jwt = require("jsonwebtoken");
@@ -46,13 +45,11 @@ const authenticateToken = (req, res, next) => {
 app.post('/api/register', async (req, res) => {
   const { name, email, password } = req.body;
 
-  // Basic validation
   if (!name || !email || !password) {
     return res.status(400).json({ message: "All fields are required." });
   }
 
   try {
-    // Check if user already exists
     const [existing] = await pool.execute(
       'SELECT * FROM users WHERE email = ?',
       [email]
@@ -62,23 +59,20 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ message: "User already exists." });
     }
 
-    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Store user in database
     const [result] = await pool.execute(
       'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
       [name, email, hashedPassword]
     );
 
-    // Return success response (exclude password)
     res.status(201).json({ 
       message: "User registered successfully", 
       user: { id: result.insertId, name, email } 
     });
   } catch (error) {
     console.error("Registration error:", error);
-    res.status(500).json({ message: "Server error during registration." });
+    res.status(500).json({ message: `Server error during registration: ${error.message}` });
   }
 });
 
@@ -86,13 +80,11 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
 
-  // Basic validation
   if (!email || !password) {
     return res.status(400).json({ message: "Email and password are required." });
   }
 
   try {
-    // Check if user exists
     const [users] = await pool.execute(
       'SELECT * FROM users WHERE email = ?',
       [email]
@@ -104,20 +96,17 @@ app.post('/api/login', async (req, res) => {
 
     const user = users[0];
 
-    // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name },
       JWT_SECRET,
       { expiresIn: '1h' }
     );
 
-    // Return success response with token
     res.json({ 
       message: "Login successful", 
       token, 
@@ -125,7 +114,7 @@ app.post('/api/login', async (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ message: "Server error during login." });
+    res.status(500).json({ message: `Server error during login: ${error.message}` });
   }
 });
 
@@ -134,7 +123,6 @@ app.post('/api/tasks', authenticateToken, async (req, res) => {
   const { title, description, due_date, status } = req.body;
   const user_id = req.user.id;
   
-  // Validate required fields
   if (!title) {
     return res.status(400).json({ message: "Task title is required." });
   }
@@ -142,16 +130,21 @@ app.post('/api/tasks', authenticateToken, async (req, res) => {
   try {
     const [result] = await pool.execute(
       'INSERT INTO tasks (user_id, title, description, due_date, status) VALUES (?, ?, ?, ?, ?)',
-      [user_id, title, description, due_date || null, status || 'pending']
+      [user_id, title, description || null, due_date || null, status || 'pending']
     );
     
+    const [newTask] = await pool.execute(
+      'SELECT * FROM tasks WHERE id = ?',
+      [result.insertId]
+    );
+
     res.status(201).json({ 
       message: "Task created successfully",
-      task_id: result.insertId
+      task: newTask[0]
     });
   } catch (error) {
     console.error("Task creation error:", error);
-    res.status(500).json({ message: "Server error when creating task." });
+    res.status(500).json({ message: `Server error when creating task: ${error.message}` });
   }
 });
 
@@ -168,7 +161,7 @@ app.get('/api/tasks', authenticateToken, async (req, res) => {
     res.json({ tasks });
   } catch (error) {
     console.error("Task retrieval error:", error);
-    res.status(500).json({ message: "Server error when retrieving tasks." });
+    res.status(500).json({ message: `Server error when retrieving tasks: ${error.message}` });
   }
 });
 
@@ -190,7 +183,7 @@ app.get('/api/tasks/:id', authenticateToken, async (req, res) => {
     res.json({ task: tasks[0] });
   } catch (error) {
     console.error("Task retrieval error:", error);
-    res.status(500).json({ message: "Server error when retrieving task." });
+    res.status(500).json({ message: `Server error when retrieving task: ${error.message}` });
   }
 });
 
@@ -210,17 +203,40 @@ app.put('/api/tasks/:id', authenticateToken, async (req, res) => {
     if (tasks.length === 0) {
       return res.status(404).json({ message: "Task not found." });
     }
-    
-    // Update the task
-    await pool.execute(
+
+    // Validate status if provided
+    if (status && !['pending', 'in_progress', 'completed'].includes(status)) {
+      return res.status(400).json({ message: "Invalid status value. Must be 'pending', 'in_progress', or 'completed'." });
+    }
+
+    // Update only the fields that are provided
+    const updates = {};
+    if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (due_date !== undefined) updates.due_date = due_date;
+    if (status !== undefined) updates.status = status;
+
+    const [result] = await pool.execute(
       'UPDATE tasks SET title = ?, description = ?, due_date = ?, status = ? WHERE id = ?',
-      [title, description, due_date, status, taskId]
+      [
+        updates.title ?? tasks[0].title,
+        updates.description ?? tasks[0].description,
+        updates.due_date ?? tasks[0].due_date,
+        updates.status ?? tasks[0].status,
+        taskId
+      ]
     );
-    
-    res.json({ message: "Task updated successfully" });
+
+    // Fetch the updated task
+    const [updatedTask] = await pool.execute(
+      'SELECT * FROM tasks WHERE id = ?',
+      [taskId]
+    );
+
+    res.json({ message: "Task updated successfully", task: updatedTask[0] });
   } catch (error) {
     console.error("Task update error:", error);
-    res.status(500).json({ message: "Server error when updating task." });
+    res.status(500).json({ message: `Server error when updating task: ${error.message}` });
   }
 });
 
@@ -230,7 +246,6 @@ app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
   const userId = req.user.id;
 
   try {
-    // Check if task exists and belongs to the user
     const [tasks] = await pool.execute(
       'SELECT * FROM tasks WHERE id = ? AND user_id = ?',
       [taskId, userId]
@@ -240,13 +255,12 @@ app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: "Task not found." });
     }
     
-    // Delete the task
     await pool.execute('DELETE FROM tasks WHERE id = ?', [taskId]);
     
     res.json({ message: "Task deleted successfully" });
   } catch (error) {
     console.error("Task deletion error:", error);
-    res.status(500).json({ message: "Server error when deleting task." });
+    res.status(500).json({ message: `Server error when deleting task: ${error.message}` });
   }
 });
 
@@ -267,7 +281,7 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
     res.json({ user: users[0] });
   } catch (error) {
     console.error("Profile retrieval error:", error);
-    res.status(500).json({ message: "Server error when retrieving profile." });
+    res.status(500).json({ message: `Server error when retrieving profile: ${error.message}` });
   }
 });
 
@@ -277,7 +291,6 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
   const { name, email } = req.body;
   
   try {
-    // Optional: Check if email is already taken by another user
     if (email) {
       const [existingUsers] = await pool.execute(
         'SELECT id FROM users WHERE email = ? AND id != ?',
@@ -289,7 +302,6 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
       }
     }
     
-    // Update user profile
     await pool.execute(
       'UPDATE users SET name = ?, email = ? WHERE id = ?',
       [name, email, userId]
@@ -298,7 +310,7 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
     res.json({ message: "Profile updated successfully" });
   } catch (error) {
     console.error("Profile update error:", error);
-    res.status(500).json({ message: "Server error when updating profile." });
+    res.status(500).json({ message: `Server error when updating profile: ${error.message}` });
   }
 });
 
@@ -312,7 +324,6 @@ app.put('/api/change-password', authenticateToken, async (req, res) => {
   }
   
   try {
-    // Get user with password
     const [users] = await pool.execute(
       'SELECT password FROM users WHERE id = ?',
       [userId]
@@ -322,13 +333,11 @@ app.put('/api/change-password', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
     
-    // Verify current password
     const isMatch = await bcrypt.compare(currentPassword, users[0].password);
     if (!isMatch) {
       return res.status(401).json({ message: "Current password is incorrect." });
     }
     
-    // Hash and update new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await pool.execute(
       'UPDATE users SET password = ? WHERE id = ?',
@@ -338,19 +347,18 @@ app.put('/api/change-password', authenticateToken, async (req, res) => {
     res.json({ message: "Password changed successfully." });
   } catch (error) {
     console.error("Password change error:", error);
-    res.status(500).json({ message: "Server error when changing password." });
+    res.status(500).json({ message: `Server error when changing password: ${error.message}` });
   }
 });
 
 // Database health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
-    // Try to execute a simple query
     await pool.execute('SELECT 1');
     res.json({ status: 'ok', message: 'Database connection is working' });
   } catch (error) {
     console.error("Database health check failed:", error);
-    res.status(500).json({ status: 'error', message: 'Database connection failed' });
+    res.status(500).json({ status: 'error', message: `Database connection failed: ${error.message}` });
   }
 });
 
