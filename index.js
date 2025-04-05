@@ -11,11 +11,11 @@ app.use(express.json());
 const pool = mysql.createPool({
     host: 'localhost',
     user: 'root',
-    password: 'your_password', // Replace with your MySQL password
+    password: 'Mycourse123#', // Replace with your MySQL password
     database: 'task_manager'
 });
 
-const JWT_SECRET = 'your_jwt_secret'; // Replace with a secure secret
+const JWT_SECRET = 'my_secret_code'; // Replace with a secure secret
 
 // Middleware to authenticate JWT token
 function authenticateToken(req, res, next) {
