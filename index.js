@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 
 const app = express();
+const port = 3000;
 app.use(cors());
 app.use(express.json());
 
@@ -263,6 +264,6 @@ app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
     }
 });
 
-app.listen(3000, () => {
-    console.log('Server running on port 3000');
+app.listen(port, () => {
+  console.log(`Server listening at http://localhost:${port}`);
 });

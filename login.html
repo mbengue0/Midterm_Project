@@ -212,82 +212,95 @@
         }
 
         // Handle login
-        async function handleLogin(e) {
-            e.preventDefault();
-
-            const username = document.getElementById('loginUsername').value.trim();
-            const password = document.getElementById('loginPassword').value.trim();
-
-            // Client-side validation
-            if (!username || !password) {
-                showMessage('Please enter both username and password.', false);
-                return;
-            }
-
-            console.log('Login request:', { username, password });
-
-            try {
-                const response = await fetch('http://localhost:3000/api/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.message || 'Login failed');
-                }
-
-                localStorage.setItem('authToken', data.token);
-                localStorage.setItem('user', JSON.stringify(data.user));
-                showMessage('Login successful', true);
-                window.location.href = 'Dashboard.html';
-            } catch (error) {
-                console.error('Login error:', error);
-                showMessage(`Error: ${error.message}`, false);
-            }
-        }
-
         // Handle register
-        async function handleRegister(e) {
-            e.preventDefault();
+async function handleRegister(e) {
+    e.preventDefault();
 
-            const username = document.getElementById('registerUsername').value.trim();
-            const password = document.getElementById('registerPassword').value.trim();
+    const username = document.getElementById('registerUsername').value.trim();
+    const password = document.getElementById('registerPassword').value.trim();
 
-            // Client-side validation
-            if (!username || !password) {
-                showMessage('Please enter both username and password.', false);
-                return;
-            }
+    if (!username || !password) {
+        showMessage('Please enter both username and password.', false);
+        return;
+    }
 
-            console.log('Register request:', { username, password });
+    console.log('Register request:', { username, password });
 
-            try {
-                const response = await fetch('http://localhost:3000/api/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ username, password })
-                });
+    try {
+        const response = await fetch('http://localhost:3000/api/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
 
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.message || 'Registration failed');
-                }
-
-                showMessage('Registration successful. Please log in.', true);
-                showLoginForm();
-            } catch (error) {
-                console.error('Registration error:', error);
-                showMessage(`Error: ${error.message}`, false);
-            }
+        // Check the content type
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`Expected JSON, but received: ${text.substring(0, 50)}...`);
         }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Registration failed');
+        }
+
+        showMessage('Registration successful. Please log in.', true);
+        showLoginForm();
+    } catch (error) {
+        console.error('Registration error:', error);
+        showMessage(`Error: ${error.message}`, false);
+    }
+}
+
+// Handle login
+async function handleLogin(e) {
+    e.preventDefault();
+
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+
+    if (!username || !password) {
+        showMessage('Please enter both username and password.', false);
+        return;
+    }
+
+    console.log('Login request:', { username, password });
+
+    try {
+        const response = await fetch('http://localhost:3000/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
+
+        // Check the content type
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`Expected JSON, but received: ${text.substring(0, 50)}...`);
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Login failed');
+        }
+
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        showMessage('Login successful', true);
+        window.location.href = 'Dashboard.html';
+    } catch (error) {
+        console.error('Login error:', error);
+        showMessage(`Error: ${error.message}`, false);
+    }
+}
     </script>
 </body>
 </html>
