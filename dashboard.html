@@ -819,7 +819,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const token = localStorage.getItem('authToken');
             if (!token) {
-                window.location.href = 'index.html';
+                window.location.href = 'login.html';
                 return;
             }
 
@@ -850,7 +850,7 @@
             const tasksContainer = document.getElementById('tasksContainer');
 
             try {
-                const response = await fetch('http://localhost:3000/api/tasks', {
+                const response = await fetch('http://localhost:5500/api/tasks', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -861,7 +861,7 @@
                         showMessage('Session expired. Please log in again.', false);
                         localStorage.removeItem('authToken');
                         localStorage.removeItem('user');
-                        window.location.href = 'index.html';
+                        window.location.href = 'login.html';
                         return;
                     }
                     throw new Error('Failed to load tasks');
@@ -1049,8 +1049,8 @@
             
             try {
                 const url = isEdit 
-                    ? `http://localhost:3000/api/tasks/${taskId}`
-                    : 'http://localhost:3000/api/tasks';
+                    ? `http://localhost:5500/api/tasks/${taskId}`
+                    : 'http://localhost:5500/api/tasks';
                 
                 const method = isEdit ? 'PUT' : 'POST';
                 
@@ -1069,7 +1069,7 @@
                         showMessage('Session expired. Please log in again.', false);
                         localStorage.removeItem('authToken');
                         localStorage.removeItem('user');
-                        window.location.href = 'index.html';
+                        window.location.href = 'login.html';
                         return;
                     }
                     throw new Error(errorData.message || 'Failed to save task');
@@ -1092,7 +1092,7 @@
             
             try {
                 showLoadingSpinner(taskCard);
-                const response = await fetch(`http://localhost:3000/api/tasks/${taskId}`, {
+                const response = await fetch(`http://localhost:5500/api/tasks/${taskId}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -1109,7 +1109,7 @@
                         showMessage('Session expired. Please log in again.', false);
                         localStorage.removeItem('authToken');
                         localStorage.removeItem('user');
-                        window.location.href = 'index.html';
+                        window.location.href = 'login.html';
                         return;
                     }
                     throw new Error(errorData.message || 'Failed to fetch task details');
@@ -1151,7 +1151,7 @@
             try {
                 showLoadingSpinner(taskCard);
                 const token = localStorage.getItem('authToken');
-                const response = await fetch(`http://localhost:3000/api/tasks/${taskId}`, {
+                const response = await fetch(`http://localhost:5500/api/tasks/${taskId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1166,7 +1166,7 @@
                         showMessage('Session expired. Please log in again.', false);
                         localStorage.removeItem('authToken');
                         localStorage.removeItem('user');
-                        window.location.href = 'index.html';
+                        window.location.href = 'login.html';
                         return;
                     }
                     throw new Error(errorData.message || `Failed to update status (HTTP ${response.status})`);
@@ -1203,7 +1203,7 @@
                         throw new Error('No authentication token found. Please log in again.');
                     }
 
-                    const response = await fetch(`http://localhost:3000/api/tasks/${taskId}`, {
+                    const response = await fetch(`http://localhost:5500/api/tasks/${taskId}`, {
                         method: 'DELETE',
                         headers: {
                             'Authorization': `Bearer ${token}`,
@@ -1223,7 +1223,7 @@
                             showMessage('Session expired. Please log in again.', false);
                             localStorage.removeItem('authToken');
                             localStorage.removeItem('user');
-                            window.location.href = 'index.html';
+                            window.location.href = 'login.html';
                             return;
                         }
                         throw new Error(errorData.message || `Server returned ${response.status}`);

@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 
 const app = express();
-const port = 3000;
+const port = 5500; // Updated port as per your previous change
 app.use(cors());
 app.use(express.json());
 
@@ -160,6 +160,28 @@ app.get('/api/tasks', authenticateToken, async (req, res) => {
     }
 });
 
+// Get a task by ID for the authenticated user (New Endpoint)
+app.get('/api/tasks/:id', authenticateToken, async (req, res) => {
+    const taskId = req.params.id;
+    const userId = req.user.id;
+
+    try {
+        const [tasks] = await pool.execute(
+            'SELECT * FROM tasks WHERE id = ? AND user_id = ?',
+            [taskId, userId]
+        );
+
+        if (tasks.length === 0) {
+            return res.status(404).json({ message: "Task not found or you do not have access to this task." });
+        }
+
+        res.json({ task: tasks[0] });
+    } catch (error) {
+        console.error("Task retrieval by ID error:", error);
+        res.status(500).json({ message: `Server error when retrieving task: ${error.message}` });
+    }
+});
+
 // Update a task
 app.put('/api/tasks/:id', authenticateToken, async (req, res) => {
     const taskId = req.params.id;
@@ -265,5 +287,5 @@ app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server listening at http://localhost:${port}`);
+    console.log(`Server listening at http://localhost:${port}`);
 });
