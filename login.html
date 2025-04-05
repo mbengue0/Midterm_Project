@@ -3,94 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auth API</title>
-    <script src="server.js"></script>
+    <title>Task Manager - Login / Register</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body {
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
-            background: linear-gradient(to right, #2c3e50, #6a3093);
-            height: 100vh;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #2c3e50, #6a3093);
+            color: #333;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            overflow: hidden;
         }
 
-        .hidden {
-            display: none;
+        .container {
+            max-width: 400px;
+            width: 100%;
+            padding: 20px;
         }
 
-        #loginFormContainer, #registerFormContainer {
-            width: 400px;
-            background-color: #f7f8fa;
-            border-radius: 8px;
+        .auth-form {
+            background-color: white;
             padding: 30px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            animation: slideIn 0.5s ease;
         }
 
-        #loginFormContainer h2, #registerFormContainer h2 {
-            margin-top: 0;
-            font-size: 28px;
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .auth-form h2 {
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #333;
+            text-align: center;
+        }
+
+        .form-group {
             margin-bottom: 20px;
         }
 
-        #loginFormContainer input, #registerFormContainer input {
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .form-group input {
             width: 100%;
             padding: 12px;
-            margin-top: 5px;
-            margin-bottom: 20px;
             border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-size: 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
         }
 
-        #loginFormContainer button, #registerFormContainer button {
-            width: 100%;
-            padding: 12px;
-            background-color: #3956de;
+        .form-group input:focus {
+            border-color: #ff6f61;
+            outline: none;
+        }
+
+        .form-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .auth-btn {
+            background: linear-gradient(45deg, #ff6f61, #ff8a65);
             color: white;
             border: none;
-            border-radius: 4px;
+            padding: 12px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 5px;
+            font-weight: 500;
+            width: 100%;
+            transition: transform 0.2s ease, box-shadow 0.3s ease;
         }
 
-        #loginFormContainer button:hover, #registerFormContainer button:hover {
-            background-color: #2a44c2;
+        .auth-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
 
-        #loginFormContainer p, #registerFormContainer p {
+        .toggle-form {
+            background: none;
+            border: none;
+            color: #ff6f61;
+            font-size: 14px;
+            cursor: pointer;
             text-align: center;
-            margin-top: 20px;
-        }
-
-        #loginFormContainer a, #registerFormContainer a {
-            color: #3956de;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        #loginFormContainer a:hover, #registerFormContainer a:hover {
-            text-decoration: underline;
-        }
-
-        label {
-            font-weight: bold;
-            color: #555;
+            display: block;
+            margin-top: 15px;
         }
 
         .message {
-            padding: 10px;
-            border-radius: 4px;
+            padding: 12px;
+            border-radius: 8px;
             margin-bottom: 15px;
             font-size: 14px;
             text-align: center;
+            animation: fadeIn 0.5s ease;
         }
 
         .success-message {
@@ -106,80 +135,140 @@
         }
     </style>
 </head>
-
 <body>
-    <div id="loginFormContainer">
-        <h2>Hello!</h2>
-        <div id="loginMessage" class="hidden message"></div>
-        <form id="loginForm">
-            <label for="loginEmail">Username</label>
-            <input type="email" id="loginEmail" name="loginEmail" required placeholder="Username">
-            
-            <label for="loginPassword">Password</label>
-            <input type="password" id="loginPassword" name="loginPassword" required placeholder="Password">
-            
-            <button type="submit">SIGN IN</button>
-        </form>
-        <p>DON'T HAVE AN ACCOUNT? <a href="#" id="showRegisterForm">SIGN UP NOW!</a></p>
-    </div>
+    <div class="container">
+        <div id="messageContainer"></div>
+        <div class="auth-form" id="loginForm">
+            <h2>Login</h2>
+            <form id="loginFormElement">
+                <div class="form-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="auth-btn">Login</button>
+            </form>
+            <button class="toggle-form" id="showRegisterFormBtn">Don't have an account? Register</button>
+        </div>
 
-    <div id="registerFormContainer" class="hidden">
-        <h2>Create Account</h2>
-        <div id="registerMessage" class="hidden message"></div>
-        <form id="registerForm">
-            <label for="name">Name</label>
-            <input type="text" id="name" name="name" required placeholder="Name">
-            
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" required placeholder="Email">
-            
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password" required placeholder="Password">
-            
-            <button type="submit">REGISTER</button>
-        </form>
-        <p>ALREADY HAVE AN ACCOUNT? <a href="#" id="showLoginForm">SIGN IN</a></p>
+        <div class="auth-form" id="registerForm" style="display: none;">
+            <h2>Register</h2>
+            <form id="registerFormElement">
+                <div class="form-group">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" required>
+                </div>
+                <button type="submit" class="auth-btn">Register</button>
+            </form>
+            <button class="toggle-form" id="showLoginFormBtn">Already have an account? Login</button>
+        </div>
     </div>
 
     <script>
-        document.getElementById('showRegisterForm').addEventListener('click', (e) => {
-            e.preventDefault();
-            document.getElementById('loginFormContainer').classList.add('hidden');
-            document.getElementById('registerFormContainer').classList.remove('hidden');
-            // Clear any messages when switching forms
-            hideMessage('loginMessage');
-            hideMessage('registerMessage');
+        // Utility function to show messages
+        const showMessage = (message, isSuccess) => {
+            const messageContainer = document.getElementById('messageContainer');
+            messageContainer.textContent = message;
+            messageContainer.className = 'message';
+            messageContainer.classList.add(isSuccess ? 'success-message' : 'error-message');
+            setTimeout(() => {
+                messageContainer.textContent = '';
+                messageContainer.className = 'message';
+            }, 5000);
+        };
+
+        // Check if user is already logged in
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                window.location.href = 'Dashboard.html';
+                return;
+            }
+
+            // Add event listeners
+            document.getElementById('loginFormElement').addEventListener('submit', handleLogin);
+            document.getElementById('registerFormElement').addEventListener('submit', handleRegister);
+            document.getElementById('showRegisterFormBtn').addEventListener('click', showRegisterForm);
+            document.getElementById('showLoginFormBtn').addEventListener('click', showLoginForm);
         });
 
-        document.getElementById('showLoginForm').addEventListener('click', (e) => {
-            e.preventDefault();
-            document.getElementById('registerFormContainer').classList.add('hidden');
-            document.getElementById('loginFormContainer').classList.remove('hidden');
-            // Clear any messages when switching forms
-            hideMessage('loginMessage');
-            hideMessage('registerMessage');
-        });
-
-        // Function to show message in form
-        function showMessage(elementId, message, isSuccess) {
-            const messageElement = document.getElementById(elementId);
-            messageElement.textContent = message;
-            messageElement.classList.remove('hidden', 'success-message', 'error-message');
-            messageElement.classList.add(isSuccess ? 'success-message' : 'error-message');
+        // Show login form
+        function showLoginForm() {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('loginFormElement').reset();
         }
 
-        // Function to hide message
-        function hideMessage(elementId) {
-            const messageElement = document.getElementById(elementId);
-            messageElement.classList.add('hidden');
-            messageElement.textContent = '';
+        // Show register form
+        function showRegisterForm() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+            document.getElementById('registerFormElement').reset();
         }
 
-        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        // Handle login
+        async function handleLogin(e) {
             e.preventDefault();
-            const name = document.getElementById('name').value;
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+
+            // Client-side validation
+            if (!username || !password) {
+                showMessage('Please enter both username and password.', false);
+                return;
+            }
+
+            // Debug the values being sent
+            console.log('Login request:', { username, password });
+
+            try {
+                const response = await fetch('http://localhost:3000/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Login failed');
+                }
+
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                showMessage('Login successful', true);
+                window.location.href = 'Dashboard.html';
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage(`Error: ${error.message}`, false);
+            }
+        }
+
+        // Handle register
+        async function handleRegister(e) {
+            e.preventDefault();
+
+            const username = document.getElementById('registerUsername').value.trim();
+            const password = document.getElementById('registerPassword').value.trim();
+
+            // Client-side validation
+            if (!username || !password) {
+                showMessage('Please enter both username and password.', false);
+                return;
+            }
+
+            // Debug the values being sent
+            console.log('Register request:', { username, password });
 
             try {
                 const response = await fetch('http://localhost:3000/api/register', {
@@ -187,67 +276,22 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ name, email, password })
+                    body: JSON.stringify({ username, password })
                 });
 
-                const result = await response.json();
-                
-                // Show message inside the form instead of alert
-                const isSuccess = response.ok; // Check if response was successful
-                showMessage('registerMessage', result.message, isSuccess);
-                
-                // If registration successful, clear the form
-                if (isSuccess) {
-                    document.getElementById('registerForm').reset();
-                    // Optional: redirect to login after successful registration with a delay
-                    // setTimeout(() => {
-                    //     document.getElementById('showLoginForm').click();
-                    // }, 2000);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Registration failed');
                 }
+
+                showMessage('Registration successful. Please log in.', true);
+                showLoginForm();
             } catch (error) {
-                showMessage('registerMessage', 'An error occurred. Please try again.', false);
-                console.error('Error:', error);
+                console.error('Registration error:', error);
+                showMessage(`Error: ${error.message}`, false);
             }
-        });
-
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
-
-    try {
-        const response = await fetch('http://localhost:3000/api/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email, password })
-        });
-
-        const result = await response.json();
-        
-        // Show message inside the form instead of alert
-        const isSuccess = response.ok; // Check if response was successful
-        showMessage('loginMessage', result.message, isSuccess);
-        
-        if (result.token) {
-            console.log('Token:', result.token);
-            // Store token in localStorage or sessionStorage for later use
-            localStorage.setItem('authToken', result.token);
-            
-            // Store user info
-            if (result.user) {
-                localStorage.setItem('user', JSON.stringify(result.user));
-            }
-            
-            // Redirect to dashboard
-            window.location.href = 'dashboard.html';
         }
-    } catch (error) {
-        showMessage('loginMessage', 'An error occurred. Please try again.', false);
-        console.error('Error:', error);
-    }
-});
     </script>
 </body>
 </html>
