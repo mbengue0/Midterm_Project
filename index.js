@@ -1,408 +1,268 @@
-// backend/index.js
-const express = require("express");
-const bcrypt = require("bcryptjs");
-const cors = require("cors");
-const mysql = require("mysql2/promise");
-const jwt = require("jsonwebtoken");
+const express = require('express');
+const mysql = require('mysql2/promise');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
 
 const app = express();
-const port = 3000;
-const JWT_SECRET = "mySuperSecretKey123"; // In production, use environment variables
+app.use(cors());
+app.use(express.json());
 
-// MySQL Connection Pool
 const pool = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "Mycourse123#",
-  database: "task_manager",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+    host: 'localhost',
+    user: 'root',
+    password: 'your_password', // Replace with your MySQL password
+    database: 'task_manager'
 });
 
-app.use(express.json());
-app.use(cors());
+const JWT_SECRET = 'your_jwt_secret'; // Replace with a secure secret
 
 // Middleware to authenticate JWT token
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-  
-  if (!token) {
-    return res.status(401).json({ message: "Access denied. No token provided." });
-  }
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(403).json({ message: "Invalid token." });
-  }
-};
-
-// User Registration Endpoint
-app.post('/api/register', async (req, res) => {
-  const { name, email, password } = req.body;
-
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: "All fields are required." });
-  }
-
-  try {
-    const [existing] = await pool.execute(
-      'SELECT * FROM users WHERE email = ?',
-      [email]
-    );
-
-    if (existing.length > 0) {
-      return res.status(400).json({ message: "User already exists." });
+    if (!token) {
+        return res.status(401).json({ message: 'Authentication token required' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    try {
+        const user = jwt.verify(token, JWT_SECRET);
+        req.user = user;
+        next();
+    } catch (error) {
+        return res.status(403).json({ message: 'Invalid or expired token' });
+    }
+}
 
-    const [result] = await pool.execute(
-      'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
-      [name, email, hashedPassword]
-    );
+// User Registration
+app.post('/api/register', async (req, res) => {
+    const { username, password } = req.body;
 
-    res.status(201).json({ 
-      message: "User registered successfully", 
-      user: { id: result.insertId, name, email } 
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    res.status(500).json({ message: `Server error during registration: ${error.message}` });
-  }
+    if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required." });
+    }
+
+    try {
+        const [existingUsers] = await pool.execute('SELECT * FROM users WHERE username = ?', [username]);
+        if (existingUsers.length > 0) {
+            return res.status(400).json({ message: "Username already exists." });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await pool.execute('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword]);
+
+        res.status(201).json({ message: "User registered successfully" });
+    } catch (error) {
+        console.error("Registration error:", error);
+        res.status(500).json({ message: `Server error during registration: ${error.message}` });
+    }
 });
 
-// User Login Endpoint
+// User Login
 app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
+    const { username, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: "Email and password are required." });
-  }
-
-  try {
-    const [users] = await pool.execute(
-      'SELECT * FROM users WHERE email = ?',
-      [email]
-    );
-
-    if (users.length === 0) {
-      return res.status(401).json({ message: "Invalid email or password." });
+    if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required." });
     }
 
-    const user = users[0];
+    try {
+        const [users] = await pool.execute('SELECT * FROM users WHERE username = ?', [username]);
+        if (users.length === 0) {
+            return res.status(401).json({ message: "Invalid username or password." });
+        }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid email or password." });
+        const user = users[0];
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: "Invalid username or password." });
+        }
+
+        const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token, user: { id: user.id, username: user.username } });
+    } catch (error) {
+        console.error("Login error:", error);
+        res.status(500).json({ message: `Server error during login: ${error.message}` });
     }
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name },
-      JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-
-    res.json({ 
-      message: "Login successful", 
-      token, 
-      user: { id: user.id, name: user.name, email: user.email } 
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ message: `Server error during login: ${error.message}` });
-  }
 });
 
 // Create a new task
 app.post('/api/tasks', authenticateToken, async (req, res) => {
-  const { title, description, due_date, status } = req.body;
-  const user_id = req.user.id;
-  
-  if (!title) {
-      return res.status(400).json({ message: "Task title is required." });
-  }
+    const { title, description, due_date, status, priority, category } = req.body;
+    const user_id = req.user.id;
 
-  // Validate due_date
-  let validatedDueDate = null;
-  if (due_date) {
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(due_date)) {
-          return res.status(400).json({ message: "Invalid due_date format. Use YYYY-MM-DD." });
-      }
-      const parsedDate = new Date(due_date);
-      if (isNaN(parsedDate.getTime())) {
-          return res.status(400).json({ message: "Invalid due_date. Must be a valid date." });
-      }
-      validatedDueDate = due_date;
-  }
+    if (!title) {
+        return res.status(400).json({ message: "Task title is required." });
+    }
 
-  try {
-      const [result] = await pool.execute(
-          'INSERT INTO tasks (user_id, title, description, due_date, status) VALUES (?, ?, ?, ?, ?)',
-          [user_id, title, description || null, validatedDueDate, status || 'pending']
-      );
-      
-      const [newTask] = await pool.execute(
-          'SELECT * FROM tasks WHERE id = ?',
-          [result.insertId]
-      );
+    // Validate status
+    if (status && !['pending', 'in_progress', 'completed'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status value. Must be 'pending', 'in_progress', or 'completed'." });
+    }
 
-      res.status(201).json({ 
-          message: "Task created successfully",
-          task: newTask[0]
-      });
-  } catch (error) {
-      console.error("Task creation error:", error);
-      res.status(500).json({ message: `Server error when creating task: ${error.message}` });
-  }
+    // Validate due_date
+    let validatedDueDate = null;
+    if (due_date) {
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(due_date)) {
+            return res.status(400).json({ message: "Invalid due_date format. Use YYYY-MM-DD." });
+        }
+        const parsedDate = new Date(due_date);
+        if (isNaN(parsedDate.getTime())) {
+            return res.status(400).json({ message: "Invalid due_date. Must be a valid date." });
+        }
+        validatedDueDate = due_date;
+    }
+
+    // Validate priority
+    if (priority && !['low', 'medium', 'high'].includes(priority)) {
+        return res.status(400).json({ message: "Invalid priority value. Must be 'low', 'medium', or 'high'." });
+    }
+
+    // Validate category
+    if (category && (typeof category !== 'string' || category.length > 50)) {
+        return res.status(400).json({ message: "Category must be a string with a maximum length of 50 characters." });
+    }
+
+    try {
+        const [result] = await pool.execute(
+            'INSERT INTO tasks (user_id, title, description, due_date, status, priority, category) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [user_id, title, description || null, validatedDueDate, status || 'pending', priority || 'medium', category || null]
+        );
+
+        const [newTask] = await pool.execute(
+            'SELECT * FROM tasks WHERE id = ?',
+            [result.insertId]
+        );
+
+        res.status(201).json({ 
+            message: "Task created successfully",
+            task: newTask[0]
+        });
+    } catch (error) {
+        console.error("Task creation error:", error);
+        res.status(500).json({ message: `Server error when creating task: ${error.message}` });
+    }
 });
 
 // Get all tasks for the authenticated user
 app.get('/api/tasks', authenticateToken, async (req, res) => {
-  const user_id = req.user.id;
-  
-  try {
-    const [tasks] = await pool.execute(
-      'SELECT * FROM tasks WHERE user_id = ? ORDER BY due_date ASC',
-      [user_id]
-    );
-    
-    res.json({ tasks });
-  } catch (error) {
-    console.error("Task retrieval error:", error);
-    res.status(500).json({ message: `Server error when retrieving tasks: ${error.message}` });
-  }
-});
+    const userId = req.user.id;
 
-// Get single task by ID
-app.get('/api/tasks/:id', authenticateToken, async (req, res) => {
-  const taskId = req.params.id;
-  const userId = req.user.id;
-
-  try {
-    const [tasks] = await pool.execute(
-      'SELECT * FROM tasks WHERE id = ? AND user_id = ?',
-      [taskId, userId]
-    );
-    
-    if (tasks.length === 0) {
-      return res.status(404).json({ message: "Task not found." });
+    try {
+        const [tasks] = await pool.execute('SELECT * FROM tasks WHERE user_id = ?', [userId]);
+        res.json({ tasks });
+    } catch (error) {
+        console.error("Task retrieval error:", error);
+        res.status(500).json({ message: `Server error when retrieving tasks: ${error.message}` });
     }
-    
-    res.json({ task: tasks[0] });
-  } catch (error) {
-    console.error("Task retrieval error:", error);
-    res.status(500).json({ message: `Server error when retrieving task: ${error.message}` });
-  }
 });
 
 // Update a task
 app.put('/api/tasks/:id', authenticateToken, async (req, res) => {
-  const taskId = req.params.id;
-  const userId = req.user.id;
-  const { title, description, due_date, status } = req.body;
+    const taskId = req.params.id;
+    const userId = req.user.id;
+    const { title, description, due_date, status, priority, category } = req.body;
 
-  try {
-      // Check if task exists and belongs to the user
-      const [tasks] = await pool.execute(
-          'SELECT * FROM tasks WHERE id = ? AND user_id = ?',
-          [taskId, userId]
-      );
-      
-      if (tasks.length === 0) {
-          return res.status(404).json({ message: "Task not found." });
-      }
+    try {
+        // Check if task exists and belongs to the user
+        const [tasks] = await pool.execute(
+            'SELECT * FROM tasks WHERE id = ? AND user_id = ?',
+            [taskId, userId]
+        );
 
-      // Validate status if provided
-      if (status && !['pending', 'in_progress', 'completed'].includes(status)) {
-          return res.status(400).json({ message: "Invalid status value. Must be 'pending', 'in_progress', or 'completed'." });
-      }
+        if (tasks.length === 0) {
+            return res.status(404).json({ message: "Task not found." });
+        }
 
-      // Validate due_date if provided
-      let validatedDueDate = due_date;
-      if (due_date !== undefined && due_date !== null) {
-          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-          if (!dateRegex.test(due_date)) {
-              return res.status(400).json({ message: "Invalid due_date format. Use YYYY-MM-DD." });
-          }
-          const parsedDate = new Date(due_date);
-          if (isNaN(parsedDate.getTime())) {
-              return res.status(400).json({ message: "Invalid due_date. Must be a valid date." });
-          }
-          validatedDueDate = due_date;
-      }
+        // Validate status if provided
+        if (status && !['pending', 'in_progress', 'completed'].includes(status)) {
+            return res.status(400).json({ message: "Invalid status value. Must be 'pending', 'in_progress', or 'completed'." });
+        }
 
-      // Update only the fields that are provided
-      const updates = {};
-      if (title !== undefined) updates.title = title;
-      if (description !== undefined) updates.description = description;
-      if (due_date !== undefined) updates.due_date = validatedDueDate;
-      if (status !== undefined) updates.status = status;
+        // Validate due_date if provided
+        let validatedDueDate = due_date;
+        if (due_date !== undefined && due_date !== null) {
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(due_date)) {
+                return res.status(400).json({ message: "Invalid due_date format. Use YYYY-MM-DD." });
+            }
+            const parsedDate = new Date(due_date);
+            if (isNaN(parsedDate.getTime())) {
+                return res.status(400).json({ message: "Invalid due_date. Must be a valid date." });
+            }
+            validatedDueDate = due_date;
+        }
 
-      const [result] = await pool.execute(
-          'UPDATE tasks SET title = ?, description = ?, due_date = ?, status = ? WHERE id = ?',
-          [
-              updates.title ?? tasks[0].title,
-              updates.description ?? tasks[0].description,
-              updates.due_date ?? tasks[0].due_date,
-              updates.status ?? tasks[0].status,
-              taskId
-          ]
-      );
+        // Validate priority if provided
+        if (priority && !['low', 'medium', 'high'].includes(priority)) {
+            return res.status(400).json({ message: "Invalid priority value. Must be 'low', 'medium', or 'high'." });
+        }
 
-      // Fetch the updated task
-      const [updatedTask] = await pool.execute(
-          'SELECT * FROM tasks WHERE id = ?',
-          [taskId]
-      );
+        // Validate category if provided
+        if (category !== undefined && category !== null && (typeof category !== 'string' || category.length > 50)) {
+            return res.status(400).json({ message: "Category must be a string with a maximum length of 50 characters." });
+        }
 
-      res.json({ message: "Task updated successfully", task: updatedTask[0] });
-  } catch (error) {
-      console.error("Task update error:", error);
-      res.status(500).json({ message: `Server error when updating task: ${error.message}` });
-  }
+        // Update only the fields that are provided
+        const updates = {};
+        if (title !== undefined) updates.title = title;
+        if (description !== undefined) updates.description = description;
+        if (due_date !== undefined) updates.due_date = validatedDueDate;
+        if (status !== undefined) updates.status = status;
+        if (priority !== undefined) updates.priority = priority;
+        if (category !== undefined) updates.category = category;
+
+        const [result] = await pool.execute(
+            'UPDATE tasks SET title = ?, description = ?, due_date = ?, status = ?, priority = ?, category = ? WHERE id = ?',
+            [
+                updates.title ?? tasks[0].title,
+                updates.description ?? tasks[0].description,
+                updates.due_date ?? tasks[0].due_date,
+                updates.status ?? tasks[0].status,
+                updates.priority ?? tasks[0].priority,
+                updates.category ?? tasks[0].category,
+                taskId
+            ]
+        );
+
+        // Fetch the updated task
+        const [updatedTask] = await pool.execute(
+            'SELECT * FROM tasks WHERE id = ?',
+            [taskId]
+        );
+
+        res.json({ message: "Task updated successfully", task: updatedTask[0] });
+    } catch (error) {
+        console.error("Task update error:", error);
+        res.status(500).json({ message: `Server error when updating task: ${error.message}` });
+    }
 });
 
 // Delete a task
 app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
-  const taskId = req.params.id;
-  const userId = req.user.id;
+    const taskId = req.params.id;
+    const userId = req.user.id;
 
-  try {
-    const [tasks] = await pool.execute(
-      'SELECT * FROM tasks WHERE id = ? AND user_id = ?',
-      [taskId, userId]
-    );
-    
-    if (tasks.length === 0) {
-      return res.status(404).json({ message: "Task not found." });
+    try {
+        const [tasks] = await pool.execute(
+            'SELECT * FROM tasks WHERE id = ? AND user_id = ?',
+            [taskId, userId]
+        );
+
+        if (tasks.length === 0) {
+            return res.status(404).json({ message: "Task not found." });
+        }
+
+        await pool.execute('DELETE FROM tasks WHERE id = ?', [taskId]);
+        res.json({ message: "Task deleted successfully" });
+    } catch (error) {
+        console.error("Task deletion error:", error);
+        res.status(500).json({ message: `Server error when deleting task: ${error.message}` });
     }
-    
-    await pool.execute('DELETE FROM tasks WHERE id = ?', [taskId]);
-    
-    res.json({ message: "Task deleted successfully" });
-  } catch (error) {
-    console.error("Task deletion error:", error);
-    res.status(500).json({ message: `Server error when deleting task: ${error.message}` });
-  }
 });
 
-// User profile endpoint
-app.get('/api/profile', authenticateToken, async (req, res) => {
-  const userId = req.user.id;
-  
-  try {
-    const [users] = await pool.execute(
-      'SELECT id, name, email, created_at FROM users WHERE id = ?',
-      [userId]
-    );
-    
-    if (users.length === 0) {
-      return res.status(404).json({ message: "User not found." });
-    }
-    
-    res.json({ user: users[0] });
-  } catch (error) {
-    console.error("Profile retrieval error:", error);
-    res.status(500).json({ message: `Server error when retrieving profile: ${error.message}` });
-  }
-});
-
-// Update user profile
-app.put('/api/profile', authenticateToken, async (req, res) => {
-  const userId = req.user.id;
-  const { name, email } = req.body;
-  
-  try {
-    if (email) {
-      const [existingUsers] = await pool.execute(
-        'SELECT id FROM users WHERE email = ? AND id != ?',
-        [email, userId]
-      );
-      
-      if (existingUsers.length > 0) {
-        return res.status(400).json({ message: "Email already in use." });
-      }
-    }
-    
-    await pool.execute(
-      'UPDATE users SET name = ?, email = ? WHERE id = ?',
-      [name, email, userId]
-    );
-    
-    res.json({ message: "Profile updated successfully" });
-  } catch (error) {
-    console.error("Profile update error:", error);
-    res.status(500).json({ message: `Server error when updating profile: ${error.message}` });
-  }
-});
-
-// Change password
-app.put('/api/change-password', authenticateToken, async (req, res) => {
-  const userId = req.user.id;
-  const { currentPassword, newPassword } = req.body;
-  
-  if (!currentPassword || !newPassword) {
-    return res.status(400).json({ message: "Current and new passwords are required." });
-  }
-  
-  try {
-    const [users] = await pool.execute(
-      'SELECT password FROM users WHERE id = ?',
-      [userId]
-    );
-    
-    if (users.length === 0) {
-      return res.status(404).json({ message: "User not found." });
-    }
-    
-    const isMatch = await bcrypt.compare(currentPassword, users[0].password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Current password is incorrect." });
-    }
-    
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await pool.execute(
-      'UPDATE users SET password = ? WHERE id = ?',
-      [hashedPassword, userId]
-    );
-    
-    res.json({ message: "Password changed successfully." });
-  } catch (error) {
-    console.error("Password change error:", error);
-    res.status(500).json({ message: `Server error when changing password: ${error.message}` });
-  }
-});
-
-// Database health check endpoint
-app.get('/api/health', async (req, res) => {
-  try {
-    await pool.execute('SELECT 1');
-    res.json({ status: 'ok', message: 'Database connection is working' });
-  } catch (error) {
-    console.error("Database health check failed:", error);
-    res.status(500).json({ status: 'error', message: `Database connection failed: ${error.message}` });
-  }
-});
-
-// Start the server
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
-
-// Graceful shutdown to close MySQL connections
-process.on('SIGINT', async () => {
-  try {
-    await pool.end();
-    console.log('MySQL connections closed');
-    process.exit(0);
-  } catch (err) {
-    console.error('Error closing MySQL connections:', err);
-    process.exit(1);
-  }
+app.listen(3000, () => {
+    console.log('Server running on port 3000');
 });
