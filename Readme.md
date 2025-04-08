@@ -65,3 +65,48 @@ Clone the project from GitHub:
 ```bash
 git clone https://github.com/[Your GitHub Username]/task-manager.git
 cd task-manager
+```
+
+#### 2. Set Up the Database
+1. Start your MySQL server (e.g., via XAMPP or `sudo systemctl start mysql`).
+2. Log in to MySQL:
+```bash
+   mysql -u root -p
+
+CREATE DATABASE task_manager;
+USE task_manager;
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE tasks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    due_date DATE,
+    status ENUM('pending', 'in_progress', 'completed') DEFAULT 'pending',
+    priority ENUM('low', 'medium', 'high') DEFAULT 'medium',
+    category VARCHAR(50),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+### 3. Update Backend Configuration
+- Open `index.js` and update the MySQL user and password to match your local MySQL setup:
+```bash javascript
+  const pool = mysql.createPool({
+      host: 'localhost',
+      user: 'task_user',
+      password: 'TaskPassword123#', // Replace with your MySQL password
+      database: 'task_manager'
+  });
+```
+### 4. Run the Application
+- Install dependencies: `npm install` or `yarn install`.
+- Start the server: `node index.js` or `yarn start`.
+- Open your web browser and navigate to `http://localhost:5500` to access the task
+manager application.
+
