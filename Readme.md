@@ -3,7 +3,7 @@
 ## Overview
 The Task Manager Application is a full-stack web application that allows users to manage their tasks. Users can register, log in, create tasks, view all their tasks, retrieve a specific task by ID, update tasks, and delete tasks. The application ensures that users can only access their own tasks through JWT-based authentication.
 
-This project was developed by [Your Name] as part of a midterm assignment to demonstrate proficiency in full-stack development, including building a RESTful API, integrating a frontend with a backend, and managing a MySQL database.
+This project was developed by Mouhamadou Mbengue to demonstrate proficiency in full-stack development, including building a RESTful API, integrating a frontend with a backend, and managing a MySQL database.
 
 ## Features
 - **User Authentication**:
